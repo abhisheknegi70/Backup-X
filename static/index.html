@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Backup-X — Local & cross-device chunk-deduplicated file backup system with selective backup" />
+  <title>Backup-X — Backup & Restore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep: #0a0c13;
+      --bg-surface: #111320;
+      --bg-card: rgba(22, 25, 40, 0.72);
+      --border: rgba(255, 255, 255, 0.07);
+      --border-hover: rgba(255, 255, 255, 0.15);
+      --accent: #3b8bff;
+      --accent-soft: rgba(59, 139, 255, 0.14);
+      --accent-glow: rgba(59, 139, 255, 0.12);
+      --green: #34d399;
+      --green-soft: rgba(52, 211, 153, 0.14);
+      --amber: #fbbf24;
+      --amber-soft: rgba(251, 191, 36, 0.14);
+      --violet: #a78bfa;
+      --violet-soft: rgba(167, 139, 250, 0.14);
+      --red: #f87171;
+      --red-soft: rgba(248, 113, 113, 0.14);
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --text-muted: #64748b;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    /* Glass card utility */
+    .glass {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    /* Header */
+    header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(10, 12, 19, 0.88);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo-group { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #3b8bff, #1d5fd6);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 13px;
+      box-shadow: 0 4px 16px rgba(59,139,255,0.3);
+    }
+    .logo-text h1 { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+    .logo-text p { font-size: 11px; color: var(--text-muted); margin-top: -1px; }
+
+    #statusBadge {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; padding: 5px 12px; border-radius: 20px;
+      background: rgba(22,25,40,0.6); border: 1px solid var(--border);
+    }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .status-dot.active { background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* Main Container */
+    main { max-width: 1040px; margin: 0 auto; padding: 24px 20px 60px; }
+
+    /* Directory Bar */
+    .dir-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; margin-bottom: 22px; border-radius: var(--radius-sm);
+      background: rgba(22, 25, 40, 0.6); border: 1px solid var(--border);
+      font-size: 12px; flex-wrap: wrap; gap: 10px;
+    }
+    .dir-banner-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 250px; }
+    .dir-path-tag {
+      font-family: monospace; font-size: 11px; padding: 3px 8px;
+      border-radius: 5px; background: rgba(59,139,255,0.12); color: #88cbff;
+      word-break: break-all;
+    }
+
+    /* Navigation Tabs */
+    .tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+    .tab-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px;
+      font-weight: 500; color: var(--text-muted); cursor: pointer;
+      border: 1px solid transparent; background: none;
+      transition: all 0.2s ease;
+    }
+    .tab-btn:hover { color: var(--text-dim); border-color: var(--border); }
+    .tab-btn.active {
+      background: var(--accent-soft); border-color: rgba(59,139,255,0.35);
+      color: #88cbff;
+    }
+    .tab-badge {
+      font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px;
+      background: rgba(59,139,255,0.25); color: #9fd2ff;
+    }
+
+    /* Tab panels */
+    .tab-panel { display: none; animation: fadeIn 0.25s ease; }
+    .tab-panel.visible { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+    /* Stat Cards */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card {
+      padding: 16px 18px; border-radius: var(--radius);
+      background: var(--bg-card); border: 1px solid var(--border);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
+    .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 4px; }
+    .stat-value { font-size: 21px; font-weight: 700; color: #fff; }
+    .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Action bar / Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px;
+      font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+      transition: all 0.2s ease; color: #fff;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: linear-gradient(135deg, #3b8bff, #1d5fd6); box-shadow: 0 4px 16px rgba(59,139,255,0.25); }
+    .btn-primary:hover { filter: brightness(1.12); box-shadow: 0 6px 20px rgba(59,139,255,0.35); }
+    .btn-green { background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 4px 16px rgba(5,150,105,0.2); }
+    .btn-green:hover { filter: brightness(1.1); }
+    .btn-violet { background: linear-gradient(135deg, #7c3aed, #6d28d9); box-shadow: 0 4px 16px rgba(124,58,237,0.2); }
+    .btn-violet:hover { filter: brightness(1.1); }
+    .btn-outline {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .btn-outline:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: var(--border-hover); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Messages & Alerts */
+    .msg { font-size: 13px; margin-top: 12px; }
+    .msg.ok { color: var(--green); }
+    .msg.err { color: var(--red); }
+    .msg.warn { color: var(--amber); }
+
+    /* Drag and Drop Upload Zone */
+    .drop-zone {
+      border: 2px dashed rgba(59, 139, 255, 0.35); border-radius: var(--radius);
+      padding: 32px 20px; text-align: center; background: rgba(59, 139, 255, 0.03);
+      cursor: pointer; transition: all 0.2s ease; margin-bottom: 24px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent); background: rgba(59, 139, 255, 0.08);
+    }
+    .drop-zone-icon { font-size: 32px; margin-bottom: 8px; }
+    .drop-zone-title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .drop-zone-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* List panel & File items */
+    .list-panel { border-radius: var(--radius); overflow: hidden; background: var(--bg-card); border: 1px solid var(--border); }
+    .list-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .list-header h2 { font-size: 14px; font-weight: 600; color: #fff; }
+    .list-body { max-height: 52vh; overflow-y: auto; }
+
+    .list-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      transition: background 0.15s; cursor: pointer;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:hover { background: rgba(59,139,255,0.04); }
+
+    .row-left { flex: 1; min-width: 0; }
+    .row-title { font-size: 13px; font-weight: 500; color: #fff; }
+    .row-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .row-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: 12px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    }
+    .badge-blue { background: var(--accent-soft); color: #88cbff; }
+    .badge-green { background: var(--green-soft); color: var(--green); }
+    .badge-amber { background: var(--amber-soft); color: var(--amber); }
+
+    /* Selective Backup File Row */
+    .select-file-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 20px; border-bottom: 1px solid var(--border);
+      transition: background 0.15s; cursor: pointer; user-select: none;
+    }
+    .select-file-row:last-child { border-bottom: none; }
+    .select-file-row:hover { background: rgba(59,139,255,0.05); }
+    .select-file-row.selected { background: rgba(59,139,255,0.08); }
+
+    .custom-checkbox {
+      width: 17px; height: 17px; border-radius: 4px;
+      border: 1.5px solid rgba(255,255,255,0.25);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .select-file-row.selected .custom-checkbox {
+      background: var(--accent); border-color: var(--accent);
+    }
+    .custom-checkbox::after {
+      content: ''; display: none; width: 4px; height: 8px;
+      border: solid #fff; border-width: 0 2px 2px 0;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
+    .select-file-row.selected .custom-checkbox::after { display: block; }
+
+    .file-path-col { flex: 1; min-width: 0; }
+    .file-path-text { font-size: 13px; font-weight: 500; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-meta-col { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    /* Chunk tag */
+    .chunk-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600; color: var(--amber);
+      background: var(--amber-soft); padding: 2px 8px; border-radius: 5px;
+    }
+
+    /* Forms */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-input {
+      width: 100%; padding: 10px 14px; border-radius: var(--radius-sm);
+      background: var(--bg-surface); border: 1px solid var(--border);
+      font-size: 13px; color: #fff; font-family: inherit;
+      outline: none; transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text-muted); }
+
+    .form-card { max-width: 520px; }
+
+    /* Result cards */
+    .result-box {
+      margin-top: 18px; padding: 18px; border-radius: var(--radius-sm);
+      background: rgba(10, 12, 19, 0.7); border: 1px solid rgba(52, 211, 153, 0.25);
+    }
+    .result-box h3 { font-size: 14px; font-weight: 600; color: var(--green); margin-bottom: 8px; }
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 10px; margin-bottom: 12px; }
+    .result-item { background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; }
+    .result-item-lbl { font-size: 10px; text-transform: uppercase; color: var(--text-muted); }
+    .result-item-val { font-size: 15px; font-weight: 700; color: #fff; }
+
+    .file-detail-pill {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 6px;
+      margin-top: 4px; font-size: 12px;
+    }
+
+    .dl-link {
+      font-size: 11px; padding: 4px 10px; border-radius: 6px;
+      background: var(--accent-soft); color: #88cbff;
+      text-decoration: none; font-weight: 500;
+      transition: background 0.15s;
+    }
+    .dl-link:hover { background: rgba(59,139,255,0.25); }
+
+    .empty-state { padding: 32px 20px; text-align: center; font-size: 13px; color: var(--text-muted); }
+
+    .refresh-btn {
+      background: none; border: none; color: var(--accent);
+      font-size: 12px; cursor: pointer; font-family: inherit;
+    }
+    .refresh-btn:hover { color: #88cbff; }
+
+    .search-input {
+      padding: 6px 12px; border-radius: 6px; font-size: 12px;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      color: #fff; outline: none; width: 170px;
+    }
+    .search-input:focus { border-color: var(--accent); }
+
+    /* Modal for directory changer */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo-group">
+      <div class="logo-icon">BX</div>
+      <div class="logo-text">
+        <h1>Backup-X</h1>
+        <p><span class="cs-label">4 KB</span> Chunk Deduplicated Backup & Recovery</p>
+      </div>
+    </div>
+    <div id="statusBadge">
+      <span class="status-dot"></span>
+      <span style="color:var(--text-muted)">Loading…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Active Backup Source Directory Bar -->
+    <div class="dir-banner">
+      <div class="dir-banner-left">
+        <span style="color:var(--text-muted)">📁 Backup Source Folder:</span>
+        <span id="activeWatchDir" class="dir-path-tag">loading…</span>
+      </div>
+      <div>
+        <button class="btn btn-outline btn-sm" onclick="openDirModal()">⚙ Change Folder</button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs" id="tabNav">
+      <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+        📊 Dashboard
+      </button>
+      <button class="tab-btn" data-tab="selective" onclick="switchTab('selective')">
+        ☑ Select Files <span class="tab-badge" id="fileCountBadge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">
+        ☁ Upload & Backup
+      </button>
+      <button class="tab-btn" data-tab="snapshots" onclick="switchTab('snapshots')">
+        🗂 Snapshots
+      </button>
+      <button class="tab-btn" data-tab="restore" onclick="switchTab('restore')">
+        ⬇ Restore
+      </button>
+      <button class="tab-btn" data-tab="cross" onclick="switchTab('cross')">
+        🌐 Cross-Device
+      </button>
+    </nav>
+
+    <!-- ================================================================ -->
+    <!-- 1. DASHBOARD TAB -->
+    <!-- ================================================================ -->
+    <section id="tab-dashboard" class="tab-panel visible">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Monitor Status</div>
+          <div class="stat-value" id="statMonitor">—</div>
+          <div class="stat-sub">File watcher state</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Database</div>
+          <div class="stat-value" id="statDB">—</div>
+          <div class="stat-sub">Storage engine</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Chunk Size</div>
+          <div class="stat-value" id="statChunkSize" style="color:var(--amber);">—</div>
+          <div class="stat-sub">Configured slice</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Unique Chunks</div>
+          <div class="stat-value" id="statChunks">—</div>
+          <div class="stat-sub">Deduplicated in vault</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Vault Disk Size</div>
+          <div class="stat-value" id="statSize">—</div>
+          <div class="stat-sub">Stored payload</div>
+        </div>
+      </div>
+
+      <!-- Quick Action Cards -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom: 20px;">
+        <div class="glass" style="padding: 20px;">
+          <h3 style="font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Chunk Size</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">
+            Applies to every later backup (including automatic ones). Large files: bigger chunks
+            mean fewer DB rows and vault files, but less deduplication. Existing snapshots are unaffected.
+          </p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <select id="chunkPreset" class="search-input" onchange="onChunkPresetChange()">
+              <option value="4096">4 KB (fine dedup)</option>
+              <option value="65536">64 KB</option>
+              <option value="262144">256 KB</option>
+              <option value="1048576">1 MB (large files)</option>
+              <option value="4194304">4 MB</option>
+              <option value="16777216">16 MB</option>
+              <option value="custom">Custom…</option>
+            </select>
+            <input type="number" id="chunkCustomKB" class="search-input" min="1" step="1"
+                   placeholder="size in KB" style="display:none; width:110px;" />
+            <button class="btn btn-outline btn-sm" onclick="applyChunkSize()">Apply</button>
+          </div>
+          <div id="chunkMsg" class="msg"></div>
+          <p id="compressInfo" style="font-size:11px; color:var(--text-muted); margin-top:8px;"></p>
+        </div>
+
+        <div class="glass" style="padding: 20px;">
+          <h3 style="font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Select Specific Files</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+            Pick individual user data files from your active folder to chunk (<span class="cs-label">4 KB</span>) and backup.
+          </p>
+          <button class="btn btn-primary" onclick="switchTab('selective')">
+            ☑ Choose Files to Backup
+          </button>
+        </div>
+
+        <div class="glass" style="padding: 20px;">
+          <h3 style="font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Upload Files from Computer</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+            Drag & drop or upload any files from anywhere on your PC directly into the vault.
+          </p>
+          <button class="btn btn-violet" onclick="switchTab('upload')">
+            ☁ Upload & Backup
+          </button>
+        </div>
+
+        <div class="glass" style="padding: 20px;">
+          <h3 style="font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Full Folder Backup</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+            Back up all files in the current data folder into a new snapshot right now.
+          </p>
+          <button id="btnBackup" class="btn btn-outline" onclick="triggerFullBackup()">
+            ▶ Backup Entire Folder
+          </button>
+          <div id="backupMsg" class="msg"></div>
+        </div>
+
+        <div class="glass" style="padding: 20px;">
+          <h3 style="font-size:14px; font-weight:600; color:#fff; margin-bottom:6px;">Vault Maintenance</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+            Delete chunks no remaining snapshot uses (after deleting snapshots).
+            <br><span id="lastAuto" style="color:var(--text-dim);"></span>
+          </p>
+          <button id="btnGC" class="btn btn-outline" onclick="runGC()">🧹 Clean up vault</button>
+          <div id="gcMsg" class="msg"></div>
+          <p style="font-size:12px; color:var(--text-muted); margin:14px 0 8px;">
+            Re-hash every stored chunk to find corruption. Bad chunks are quarantined so the next
+            backup rewrites them; give another Backup-X node's URL to repair them from it.
+          </p>
+          <input type="text" id="scrubRemote" class="search-input" style="width:100%; margin-bottom:8px;"
+                 placeholder="Optional repair source, e.g. http://192.168.1.20:8000" />
+          <button id="btnScrub" class="btn btn-outline" onclick="runScrub()">🛡 Check vault integrity</button>
+          <div id="scrubMsg" class="msg"></div>
+          <div id="scrubList" style="font-size:11px; color:var(--text-muted); max-height:120px; overflow-y:auto;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- 2. SELECTIVE FILE BACKUP TAB -->
+    <!-- ================================================================ -->
+    <section id="tab-selective" class="tab-panel">
+      <div class="list-panel">
+        <div class="list-header">
+          <div>
+            <h2>Select Files to Backup</h2>
+            <p style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+              Files in active data folder (<span id="sourceDirLabel" style="font-family:monospace; color:#88cbff;"></span>)
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="text" id="fileFilter" class="search-input" placeholder="Filter files…" oninput="filterFiles()" />
+            <button class="btn btn-outline btn-sm" onclick="selectAllFiles(true)">Select All</button>
+            <button class="btn btn-outline btn-sm" onclick="selectAllFiles(false)">Deselect All</button>
+            <button class="refresh-btn" onclick="loadWorkspaceFiles()">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Files list container -->
+        <div class="list-body" id="selectableFileList">
+          <div class="empty-state">Loading user files…</div>
+        </div>
+
+        <!-- Selection footer action bar -->
+        <div style="padding:14px 20px; background:rgba(10,12,19,0.5); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div>
+            <span id="selectedCountSummary" style="font-size:13px; font-weight:600; color:#fff;">0 files selected</span>
+            <span id="selectedEstChunks" style="font-size:12px; color:var(--text-muted); margin-left:8px;">(0 chunks est.)</span>
+          </div>
+          <button id="btnBackupSelected" class="btn btn-primary" onclick="triggerSelectedBackup()" disabled>
+            ▶ Backup Selected Files
+          </button>
+        </div>
+      </div>
+
+      <!-- Result Card -->
+      <div id="selectiveResultCard" class="result-box" style="display:none;">
+        <h3 id="resultTitle">✓ Backup Completed</h3>
+        <p id="resultMsg" style="font-size:12px; color:var(--text-dim);"></p>
+        <div class="result-grid">
+          <div class="result-item">
+            <div class="result-item-lbl">Snapshot ID</div>
+            <div class="result-item-val" id="resSnapId">—</div>
+          </div>
+          <div class="result-item">
+            <div class="result-item-lbl">Files Processed</div>
+            <div class="result-item-val" id="resFiles">—</div>
+          </div>
+          <div class="result-item">
+            <div class="result-item-lbl">Total <span class="cs-label">4 KB</span> Chunks</div>
+            <div class="result-item-val" id="resTotalChunks" style="color:var(--amber);">—</div>
+          </div>
+          <div class="result-item">
+            <div class="result-item-lbl">New Unique Chunks</div>
+            <div class="result-item-val" id="resNewChunks" style="color:var(--green);">—</div>
+          </div>
+        </div>
+        <!-- Individual file breakdown -->
+        <div style="margin-top:10px;">
+          <h4 style="font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Chunks created per file:</h4>
+          <div id="resFileList" style="max-height:180px; overflow-y:auto;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- 3. UPLOAD & BACKUP TAB -->
+    <!-- ================================================================ -->
+    <section id="tab-upload" class="tab-panel">
+      <div class="glass" style="padding:24px;">
+        <h2 style="font-size:15px; font-weight:600; color:#fff; margin-bottom:4px;">Upload & Backup Any Files</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:18px;">
+          Drag & drop files or pick them from your computer. They will be sliced into <span class="cs-label">4 KB</span> chunks and backed up immediately.
+        </p>
+
+        <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileUploadInput').click()">
+          <div class="drop-zone-icon">📁</div>
+          <div class="drop-zone-title">Click to Choose Files or Drag & Drop Here</div>
+          <div class="drop-zone-sub">Any file type (PDF, CSV, TXT, images, archives, code)</div>
+          <input type="file" id="fileUploadInput" multiple style="display:none;" onchange="handleFileSelection(event)" />
+        </div>
+
+        <div id="uploadSelectedPreview" style="display:none; margin-bottom:18px;">
+          <h3 style="font-size:13px; font-weight:600; color:#fff; margin-bottom:8px;">Ready to upload:</h3>
+          <div id="uploadFileList" style="max-height:160px; overflow-y:auto; margin-bottom:12px;"></div>
+          <button id="btnStartUpload" class="btn btn-violet" onclick="submitFileUpload()">
+            ☁ Start Backup (0 files)
+          </button>
+        </div>
+
+        <!-- Upload Result Box -->
+        <div id="uploadResultCard" class="result-box" style="display:none;">
+          <h3 id="uploadResTitle">✓ Uploaded & Backed Up Successfully</h3>
+          <p id="uploadResMsg" style="font-size:12px; color:var(--text-dim);"></p>
+          <div class="result-grid">
+            <div class="result-item">
+              <div class="result-item-lbl">Snapshot ID</div>
+              <div class="result-item-val" id="upSnapId">—</div>
+            </div>
+            <div class="result-item">
+              <div class="result-item-lbl">Files Processed</div>
+              <div class="result-item-val" id="upFiles">—</div>
+            </div>
+            <div class="result-item">
+              <div class="result-item-lbl">Total <span class="cs-label">4 KB</span> Chunks</div>
+              <div class="result-item-val" id="upTotalChunks" style="color:var(--amber);">—</div>
+            </div>
+            <div class="result-item">
+              <div class="result-item-lbl">New Chunks Stored</div>
+              <div class="result-item-val" id="upNewChunks" style="color:var(--green);">—</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;">
+            <h4 style="font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Chunks created per file:</h4>
+            <div id="upDetailList" style="max-height:180px; overflow-y:auto;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- 4. SNAPSHOTS TAB -->
+    <!-- ================================================================ -->
+    <section id="tab-snapshots" class="tab-panel">
+      <div class="list-panel">
+        <div class="list-header">
+          <div>
+            <h2>Snapshot History</h2>
+            <p style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+              Click any snapshot to inspect its files and chunk counts
+            </p>
+          </div>
+          <button class="refresh-btn" onclick="loadSnapshots()">↻ Refresh</button>
+        </div>
+        <div class="list-body" id="snapshotList">
+          <div class="empty-state">Loading snapshots…</div>
+        </div>
+      </div>
+
+      <!-- Detail panel for files in snapshot -->
+      <div id="snapshotDetail" class="list-panel" style="margin-top:20px; display:none;">
+        <div class="list-header">
+          <div>
+            <h2 id="detailTitle">Files in Snapshot</h2>
+            <p id="detailSubtitle" style="font-size:11px; color:var(--text-muted); margin-top:2px;"></p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="verifyCurrent()">🔍 Verify integrity</button>
+            <button class="btn btn-green btn-sm" onclick="restoreCurrent()">⬇ Restore…</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--red);" onclick="deleteCurrent()">🗑 Delete</button>
+          </div>
+        </div>
+        <div id="detailMsg" class="msg" style="margin:0 20px;"></div>
+        <div class="list-body" id="fileList"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- 5. RESTORE TAB -->
+    <!-- ================================================================ -->
+    <section id="tab-restore" class="tab-panel">
+      <div class="glass form-card" style="padding:24px;">
+        <h2 style="font-size:15px; font-weight:600; color:#fff; margin-bottom:6px;">Restore Entire Snapshot</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:18px;">
+          Reconstruct every file by reassembling its <span class="cs-label">4 KB</span> chunks and validating SHA-256 integrity.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="restoreSnapId">Snapshot ID</label>
+          <input class="form-input" id="restoreSnapId" type="number" min="1" placeholder="e.g. 1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="restoreDir">Target Destination Directory</label>
+          <input class="form-input" id="restoreDir" type="text" placeholder="restored  (relative paths are inside the project folder)" />
+        </div>
+        <button class="btn btn-green" onclick="restoreSnapshot()">⬇ Restore Snapshot</button>
+        <div id="restoreMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- 6. CROSS-DEVICE TAB -->
+    <!-- ================================================================ -->
+    <section id="tab-cross" class="tab-panel">
+      <div class="glass form-card" style="padding:24px;">
+        <h2 style="font-size:15px; font-weight:600; color:#fff; margin-bottom:4px;">Cross-Device Recovery</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:18px;">
+          Pull a snapshot and its <span class="cs-label">4 KB</span> chunks over HTTP from another Backup-X node on your network.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="remoteUrl">Remote Backup-X URL</label>
+          <input class="form-input" id="remoteUrl" type="url" placeholder="http://192.168.1.42:8000" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="remoteSnapId">Remote Snapshot ID</label>
+          <input class="form-input" id="remoteSnapId" type="number" min="1" placeholder="e.g. 1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="remoteToken">Remote Access Token (if the remote sets BACKUPX_TOKEN)</label>
+          <input class="form-input" id="remoteToken" type="password" autocomplete="off" placeholder="leave empty if none" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="remoteDir">Local Destination Directory</label>
+          <input class="form-input" id="remoteDir" type="text" placeholder="restored  (relative paths are inside the project folder)" />
+        </div>
+        <button class="btn btn-violet" onclick="pullRemote()">☁ Pull from Remote</button>
+        <div id="crossMsg" class="msg"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal for changing directory -->
+  <div id="dirModal" class="modal-overlay">
+    <div class="glass" style="max-width:480px; width:100%; padding:24px;">
+      <h3 style="font-size:15px; font-weight:600; color:#fff; margin-bottom:6px;">Change Backup Source Folder</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px;">
+        Enter the full path of any folder on your computer to watch and back up.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Folder Path</label>
+        <input class="form-input" id="modalDirPath" type="text" placeholder="e.g. C:\Users\abhis\Documents\MyFolder" />
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="closeDirModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveDirChange()">Save & Switch</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ===== Global state =====
+  let availableFiles = [];
+  const selectedFiles = new Set();
+  let filesToUpload = [];
+  let chunkSize = 4096;
+  let chunkLimits = { min: 1024, max: 67108864 };
+  let currentSnapshot = null;
+
+  // ===== Integrity scrub =====
+  async function runScrub() {
+    const btn = document.getElementById('btnScrub');
+    btn.disabled = true;
+    setMsg('scrubMsg', '⏳ Re-hashing every chunk (backups wait until this finishes)…', '');
+    document.getElementById('scrubList').innerHTML = '';
+    try {
+      const remote = document.getElementById('scrubRemote').value.trim();
+      const r = await api('/api/scrub', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quarantine: true, remote_url: remote, token: getToken() }) });
+      if (r.healthy && !r.corrupt && !r.missing) {
+        setMsg('scrubMsg', `✓ All ${r.chunks_checked.toLocaleString()} chunks verified`, 'ok');
+      } else {
+        const parts = [`${r.corrupt} corrupt`, `${r.missing} missing`, `${r.repaired} repaired`,
+                       `${r.quarantined} quarantined`];
+        setMsg('scrubMsg', `${r.healthy ? '✓' : '⚠'} ${parts.join(', ')} of ${r.chunks_checked.toLocaleString()} chunks. ` +
+          (r.healthy ? 'Everything was repaired.' : 'Back up the original files again, or repair from another node.'),
+          r.healthy ? 'ok' : 'warn');
+        document.getElementById('scrubList').innerHTML = r.affected_files
+          .map(f => `<div>Snapshot #${f.snapshot_id}: ${esc(f.path)}</div>`).join('');
+      }
+    } catch (e) { setMsg('scrubMsg', '✗ ' + e.message, 'err'); }
+    finally { btn.disabled = false; loadStatus(); }
+  }
+
+  // ===== Chunk size selector =====
+  function syncChunkControls() {
+    const sel = document.getElementById('chunkPreset');
+    const custom = document.getElementById('chunkCustomKB');
+    if ([...sel.options].some(o => o.value === String(chunkSize))) {
+      sel.value = String(chunkSize);
+      custom.style.display = 'none';
+    } else {
+      sel.value = 'custom';
+      custom.style.display = '';
+      custom.value = Math.round(chunkSize / 1024);
+    }
+  }
+  function onChunkPresetChange() {
+    document.getElementById('chunkCustomKB').style.display =
+      document.getElementById('chunkPreset').value === 'custom' ? '' : 'none';
+  }
+  async function applyChunkSize() {
+    const preset = document.getElementById('chunkPreset').value;
+    const bytes = preset === 'custom'
+      ? Math.round(parseFloat(document.getElementById('chunkCustomKB').value) * 1024)
+      : parseInt(preset, 10);
+    if (!Number.isInteger(bytes) || bytes < chunkLimits.min || bytes > chunkLimits.max) {
+      setMsg('chunkMsg', `Enter a size between ${fmtBytes(chunkLimits.min)} and ${fmtBytes(chunkLimits.max)}`, 'err');
+      return;
+    }
+    try {
+      await api('/api/chunk-size', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                     body: JSON.stringify({ chunk_size: bytes }) });
+      setMsg('chunkMsg', `✓ Chunk size set to ${fmtBytes(bytes)}`, 'ok');
+      await loadStatus();
+      if (document.getElementById('tab-selective').classList.contains('visible')) loadWorkspaceFiles();
+    } catch (e) { setMsg('chunkMsg', e.message, 'err'); }
+  }
+
+  // ===== Helpers =====
+  // Every value that came from the server (file names, paths) is escaped before
+  // being placed into innerHTML — a file named <img onerror=...> must not run script.
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // Access token: only needed when this dashboard is opened from ANOTHER machine
+  // and the server has BACKUPX_TOKEN set. Local (localhost) access never needs it.
+  const TOKEN_KEY = 'backupx_token';
+  const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } };
+  const setToken = (t) => { try { localStorage.setItem(TOKEN_KEY, t); } catch {} };
+
+  async function api(path, opts = {}, retried = false) {
+    const headers = Object.assign({}, opts.headers || {});
+    const tok = getToken();
+    if (tok) headers['X-BackupX-Token'] = tok;
+    const r = await fetch(path, Object.assign({}, opts, { headers }));
+    if (r.status === 401 && !retried) {
+      const t = prompt('This Backup-X server requires an access token:');
+      if (t) { setToken(t.trim()); return api(path, opts, true); }
+    }
+    let body = null;
+    try { body = await r.json(); } catch { /* non-JSON error page */ }
+    if (!r.ok) {
+      const d = body && body.detail;
+      throw new Error(typeof d === 'string' ? d : (d ? JSON.stringify(d) : `HTTP ${r.status}`));
+    }
+    return body;
+  }
+
+  function downloadUrl(fileId) {
+    const tok = getToken();
+    return `/api/restore/${fileId}` + (tok ? `?token=${encodeURIComponent(tok)}` : '');
+  }
+
+  function fmtBytes(b) {
+    if (b === undefined || b === null) return '0 B';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1).replace(/\.0$/, '') + ' KB';
+    if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+    return (b / 1073741824).toFixed(2) + ' GB';
+  }
+  const plural = (n, w) => `${n} ${w}${n !== 1 ? 's' : ''}`;
+  const csText = () => fmtBytes(chunkSize);
+
+  function setMsg(id, text, kind) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  // ===== Tabs =====
+  function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('visible'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    const panel = document.getElementById('tab-' + name);
+    const btn = document.querySelector(`[data-tab="${name}"]`);
+    if (panel) panel.classList.add('visible');
+    if (btn) btn.classList.add('active');
+    if (name === 'snapshots') loadSnapshots();
+    if (name === 'selective') loadWorkspaceFiles();
+  }
+
+  // ===== Status =====
+  async function loadStatus() {
+    try {
+      const s = await api('/api/status');
+      const badge = document.getElementById('statusBadge');
+      const dot = badge.querySelector('.status-dot');
+      const txt = badge.querySelector('span:last-child');
+      dot.className = 'status-dot' + (s.monitoring ? ' active' : '');
+      dot.style.background = s.monitoring ? '' : 'var(--amber)';
+      txt.textContent = s.monitoring ? 'Active Monitoring' : 'Idle';
+      txt.style.color = s.monitoring ? 'var(--green)' : 'var(--amber)';
+
+      chunkSize = s.chunk_size || 4096;
+      chunkLimits = { min: s.min_chunk_size || 1024, max: s.max_chunk_size || 67108864 };
+      document.querySelectorAll('.cs-label').forEach(el => el.textContent = csText());
+      syncChunkControls();
+      document.getElementById('compressInfo').textContent = s.compress_level
+        ? `Each new chunk is zlib-compressed (level ${s.compress_level}) before it is stored; incompressible chunks (zip, jpg, mp4) are stored as-is.`
+        : 'Compression is off (COMPRESS_LEVEL=0).';
+      document.getElementById('statMonitor').textContent = s.monitoring ? 'Active' : 'Idle';
+      document.getElementById('statDB').textContent = (s.db_dialect || 'sqlite').toUpperCase();
+      document.getElementById('statChunks').textContent = s.chunk_count.toLocaleString();
+      document.getElementById('statSize').textContent = fmtBytes(s.vault_size_bytes);
+      document.getElementById('statChunkSize').textContent = csText();
+      document.getElementById('lastAuto').textContent =
+        s.last_auto_backup ? 'Last automatic backup: ' + s.last_auto_backup : '';
+      if (s.watch_dir) {
+        document.getElementById('activeWatchDir').textContent = s.watch_dir;
+        document.getElementById('sourceDirLabel').textContent = s.watch_dir;
+      }
+    } catch (e) { console.warn('status failed:', e.message); }
+  }
+
+  // ===== Change watched folder =====
+  function openDirModal() {
+    document.getElementById('modalDirPath').value = document.getElementById('activeWatchDir').textContent;
+    document.getElementById('dirModal').classList.add('open');
+  }
+  function closeDirModal() { document.getElementById('dirModal').classList.remove('open'); }
+  async function saveDirChange() {
+    const p = document.getElementById('modalDirPath').value.trim();
+    if (!p) return;
+    try {
+      await api('/api/watch-dir', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: p })
+      });
+      closeDirModal();
+      selectedFiles.clear();
+      loadStatus();
+      loadWorkspaceFiles();
+    } catch (e) { alert('Error updating directory: ' + e.message); }
+  }
+
+  // ===== Selective backup =====
+  async function loadWorkspaceFiles() {
+    const listEl = document.getElementById('selectableFileList');
+    try {
+      availableFiles = await api('/api/files');
+      const present = new Set(availableFiles.map(f => f.path));
+      [...selectedFiles].forEach(p => { if (!present.has(p)) selectedFiles.delete(p); });
+      document.getElementById('fileCountBadge').textContent = availableFiles.length;
+      renderCandidateFiles();
+    } catch (e) {
+      listEl.innerHTML = `<div class="empty-state" style="color:var(--red)">Failed to load files: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderCandidateFiles() {
+    const listEl = document.getElementById('selectableFileList');
+    const filter = (document.getElementById('fileFilter').value || '').toLowerCase().trim();
+    const filtered = availableFiles
+      .map((f, i) => ({ f, i }))
+      .filter(({ f }) => f.path.toLowerCase().includes(filter));
+
+    if (!filtered.length) {
+      listEl.innerHTML = `<div class="empty-state">No files in the backup source folder. Upload files or add some to the folder.</div>`;
+      updateSelectionSummary();
+      return;
+    }
+    // Rows reference files by index (data-idx), never by splicing the path into JS.
+    listEl.innerHTML = filtered.map(({ f, i }) => `
+      <div class="select-file-row ${selectedFiles.has(f.path) ? 'selected' : ''}" data-idx="${i}">
+        <div class="custom-checkbox"></div>
+        <div class="file-path-col"><div class="file-path-text">${esc(f.path)}</div></div>
+        <div class="file-meta-col">
+          <span style="font-size:12px; color:var(--text-muted);">${fmtBytes(f.size)}</span>
+          <span class="chunk-tag">⧉ ${plural(f.chunks_est, 'chunk')}</span>
+        </div>
+      </div>`).join('');
+    updateSelectionSummary();
+  }
+
+  document.getElementById('selectableFileList').addEventListener('click', (e) => {
+    const row = e.target.closest('.select-file-row');
+    if (!row) return;
+    const f = availableFiles[+row.dataset.idx];
+    if (!f) return;
+    selectedFiles.has(f.path) ? selectedFiles.delete(f.path) : selectedFiles.add(f.path);
+    renderCandidateFiles();
+  });
+
+  function selectAllFiles(all) {
+    if (all) availableFiles.forEach(f => selectedFiles.add(f.path)); else selectedFiles.clear();
+    renderCandidateFiles();
+  }
+  function filterFiles() { renderCandidateFiles(); }
+
+  function updateSelectionSummary() {
+    const count = selectedFiles.size;
+    const btn = document.getElementById('btnBackupSelected');
+    let est = 0, bytes = 0;
+    availableFiles.forEach(f => { if (selectedFiles.has(f.path)) { est += f.chunks_est; bytes += f.size; } });
+    document.getElementById('selectedCountSummary').textContent =
+      `${count} of ${plural(availableFiles.length, 'file')} selected (${fmtBytes(bytes)})`;
+    document.getElementById('selectedEstChunks').textContent = `~${plural(est, 'chunk')} (at ${csText()} each)`;
+    btn.disabled = count === 0;
+    btn.textContent = count ? `▶ Backup Selected Files (${count})` : '▶ Backup Selected Files';
+  }
+
+  function renderDetails(listId, details) {
+    document.getElementById(listId).innerHTML = (details || []).map(fd => `
+      <div class="file-detail-pill">
+        <span style="font-family:monospace; color:#fff;">${esc(fd.path)}</span>
+        <span class="chunk-tag">⧉ ${plural(fd.chunks, 'chunk')} (${fd.new_chunks} new)</span>
+      </div>`).join('');
+  }
+
+  async function triggerSelectedBackup() {
+    if (!selectedFiles.size) return;
+    const btn = document.getElementById('btnBackupSelected');
+    btn.disabled = true;
+    btn.textContent = `⏳ Chunking files (${csText()})…`;
+    try {
+      const res = await api('/api/backup-selected', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: [...selectedFiles] })
+      });
+      document.getElementById('selectiveResultCard').style.display = 'block';
+      document.getElementById('resultTitle').textContent = `✓ Snapshot #${res.snapshot_id} Created`;
+      document.getElementById('resultMsg').textContent =
+        res.message + (res.errors && res.errors.length ? ` — skipped: ${res.errors.join('; ')}` : '');
+      document.getElementById('resSnapId').textContent = '#' + res.snapshot_id;
+      document.getElementById('resFiles').textContent = res.files;
+      document.getElementById('resTotalChunks').textContent = plural(res.total_chunks, 'chunk');
+      document.getElementById('resNewChunks').textContent = res.new_chunks + ' new';
+      renderDetails('resFileList', res.file_details);
+      loadStatus();
+    } catch (e) {
+      alert('Backup failed: ' + e.message);
+    } finally {
+      updateSelectionSummary();
+    }
+  }
+
+  // ===== Upload =====
+  const dropZone = document.getElementById('dropZone');
+  ['dragenter', 'dragover'].forEach(n => dropZone.addEventListener(n, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+  ['dragleave', 'drop'].forEach(n => dropZone.addEventListener(n, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+  dropZone.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files) handleFiles([...e.dataTransfer.files]); });
+
+  function handleFileSelection(e) { if (e.target && e.target.files) handleFiles([...e.target.files]); }
+
+  function handleFiles(files) {
+    filesToUpload = files;
+    const preview = document.getElementById('uploadSelectedPreview');
+    if (!files.length) { preview.style.display = 'none'; return; }
+    preview.style.display = 'block';
+    document.getElementById('btnStartUpload').textContent = `☁ Start Backup (${plural(files.length, 'file')})`;
+    document.getElementById('uploadFileList').innerHTML = files.map(f => {
+      const est = Math.ceil(f.size / chunkSize);
+      return `<div class="file-detail-pill">
+          <span style="color:#fff;">${esc(f.name)} (${fmtBytes(f.size)})</span>
+          <span class="chunk-tag">~${plural(est, 'chunk')} (${csText()})</span>
+        </div>`;
+    }).join('');
+  }
+
+  async function submitFileUpload() {
+    if (!filesToUpload.length) return;
+    const btn = document.getElementById('btnStartUpload');
+    btn.disabled = true;
+    btn.textContent = `⏳ Slicing into ${csText()} chunks and uploading…`;
+    const formData = new FormData();
+    filesToUpload.forEach(f => formData.append('files', f));
+    try {
+      const res = await api('/api/upload-backup', { method: 'POST', body: formData });
+      document.getElementById('uploadResultCard').style.display = 'block';
+      document.getElementById('uploadResTitle').textContent = `✓ Snapshot #${res.snapshot_id} Created`;
+      document.getElementById('uploadResMsg').textContent = res.message;
+      document.getElementById('upSnapId').textContent = '#' + res.snapshot_id;
+      document.getElementById('upFiles').textContent = res.files;
+      document.getElementById('upTotalChunks').textContent = plural(res.total_chunks, 'chunk');
+      document.getElementById('upNewChunks').textContent = res.new_chunks + ' new';
+      renderDetails('upDetailList', res.file_details);
+      filesToUpload = [];
+      document.getElementById('fileUploadInput').value = '';
+      document.getElementById('uploadSelectedPreview').style.display = 'none';
+      loadStatus();
+      loadWorkspaceFiles();
+    } catch (e) {
+      alert('Upload backup failed: ' + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ===== Full backup & maintenance =====
+  async function triggerFullBackup() {
+    const btn = document.getElementById('btnBackup');
+    btn.disabled = true; btn.textContent = '⏳ Running…';
+    try {
+      const r = await api('/api/backup', { method: 'POST' });
+      setMsg('backupMsg', (r.skipped ? 'ℹ ' : '✓ ') + r.message +
+        (!r.skipped && r.reused_files ? ` (${r.reused_files} unchanged file(s) reused without re-reading)` : ''),
+        r.skipped ? 'warn' : 'ok');
+      loadStatus();
+    } catch (e) {
+      setMsg('backupMsg', '✗ Backup failed: ' + e.message, 'err');
+    }
+    btn.disabled = false; btn.textContent = '▶ Backup Entire Folder';
+  }
+
+  async function runGC() {
+    if (!confirm('Permanently delete vault chunks that no snapshot references?')) return;
+    try {
+      const r = await api('/api/gc', { method: 'POST' });
+      setMsg('gcMsg', `✓ Removed ${plural(r.removed_chunks, 'chunk')}, freed ${fmtBytes(r.freed_bytes)}`, 'ok');
+      loadStatus();
+    } catch (e) { setMsg('gcMsg', '✗ ' + e.message, 'err'); }
+  }
+
+  // ===== Snapshots =====
+  const KIND_BADGE = { auto: 'badge-green', manual: 'badge-blue', selected: 'badge-blue',
+                       upload: 'badge-amber', remote: 'badge-amber', full: 'badge-blue' };
+
+  async function loadSnapshots() {
+    const el = document.getElementById('snapshotList');
+    try {
+      const snaps = await api('/api/snapshots');
+      if (!snaps.length) {
+        el.innerHTML = '<div class="empty-state">No snapshots yet. Trigger a backup to create one.</div>';
+        return;
+      }
+      el.innerHTML = snaps.map(s => `
+        <div class="list-row" data-snap="${s.id}">
+          <div class="row-left">
+            <div class="row-title">Snapshot #${s.id}
+              <span class="badge ${KIND_BADGE[s.kind] || 'badge-blue'}" style="margin-left:6px;">${esc(s.kind)}</span></div>
+            <div class="row-sub">${esc(s.timestamp)} · Source: ${esc(s.watched_dir)}</div>
+          </div>
+          <div class="row-right">
+            <span class="badge badge-blue">${plural(s.file_count, 'file')} · ${fmtBytes(s.total_bytes)}</span>
+            <span class="badge badge-amber">⧉ ${(s.total_chunks || 0).toLocaleString()} chunk${s.total_chunks !== 1 ? 's' : ''}</span>
+            <span style="color:var(--text-muted); font-size:13px;">→</span>
+          </div>
+        </div>`).join('');
+    } catch (e) {
+      el.innerHTML = `<div class="empty-state" style="color:var(--red)">Failed to load snapshots: ${esc(e.message)}</div>`;
+    }
+  }
+
+  document.getElementById('snapshotList').addEventListener('click', (e) => {
+    const row = e.target.closest('[data-snap]');
+    if (row) viewSnapshot(+row.dataset.snap);
+  });
+
+  async function viewSnapshot(id) {
+    currentSnapshot = id;
+    const panel = document.getElementById('snapshotDetail');
+    const list = document.getElementById('fileList');
+    document.getElementById('detailTitle').textContent = `Files in Snapshot #${id}`;
+    setMsg('detailMsg', '', '');
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    try {
+      const files = await api('/api/snapshots/' + id);
+      const total = files.reduce((a, f) => a + (f.chunk_count || 0), 0);
+      document.getElementById('detailSubtitle').textContent =
+        `${plural(files.length, 'file')} · ${total.toLocaleString()} chunks (${csText()} each)`;
+      list.innerHTML = files.length ? files.map(f => `
+        <div class="list-row" style="cursor:default;">
+          <div class="row-left">
+            <div class="row-title">${esc(f.path)}</div>
+            <div class="row-sub">${fmtBytes(f.size)} · SHA: <span style="font-family:monospace;font-size:10px">${esc(f.sha256.slice(0, 12))}…</span></div>
+          </div>
+          <div class="row-right">
+            <span class="chunk-tag">⧉ ${plural(f.chunk_count, 'chunk')}</span>
+            <a href="${downloadUrl(f.id)}" class="dl-link">⬇ Download</a>
+          </div>
+        </div>`).join('') : '<div class="empty-state">This snapshot contains no files.</div>';
+    } catch (e) {
+      list.innerHTML = `<div class="empty-state" style="color:var(--red)">Failed to load files: ${esc(e.message)}</div>`;
+    }
+  }
+
+  async function verifyCurrent() {
+    if (!currentSnapshot) return;
+    setMsg('detailMsg', '⏳ Re-hashing every chunk…', '');
+    try {
+      const r = await api('/api/verify/' + currentSnapshot);
+      if (r.healthy) setMsg('detailMsg', `✓ All ${plural(r.ok_files, 'file')} verified (every chunk + whole-file SHA-256)`, 'ok');
+      else setMsg('detailMsg', `✗ ${r.ok_files} OK, ${r.problems.length} damaged: ${r.problems.join(' | ')}`, 'err');
+    } catch (e) { setMsg('detailMsg', '✗ ' + e.message, 'err'); }
+  }
+
+  function restoreCurrent() {
+    if (!currentSnapshot) return;
+    document.getElementById('restoreSnapId').value = currentSnapshot;
+    switchTab('restore');
+  }
+
+  async function deleteCurrent() {
+    if (!currentSnapshot || !confirm(`Delete snapshot #${currentSnapshot}? This cannot be undone.`)) return;
+    try {
+      const r = await api('/api/snapshots/' + currentSnapshot, { method: 'DELETE' });
+      document.getElementById('snapshotDetail').style.display = 'none';
+      currentSnapshot = null;
+      loadSnapshots();
+      alert(r.message);
+    } catch (e) { setMsg('detailMsg', '✗ ' + e.message, 'err'); }
+  }
+
+  // ===== Restore =====
+  async function restoreSnapshot() {
+    const sid = document.getElementById('restoreSnapId').value;
+    const dir = document.getElementById('restoreDir').value.trim();
+    if (!sid) { setMsg('restoreMsg', 'Enter a valid snapshot ID', 'warn'); return; }
+    setMsg('restoreMsg', '⏳ Reassembling chunks and validating SHA-256…', '');
+    try {
+      const q = dir ? `?target_dir=${encodeURIComponent(dir)}` : '';
+      const r = await api(`/api/restore-snapshot/${sid}${q}`, { method: 'POST' });
+      if (r.failed.length)
+        setMsg('restoreMsg', `⚠ Restored ${r.restored} file(s) into ${r.target_dir}; ${r.failed.length} failed integrity checks: ${r.failed.join(' | ')}`, 'warn');
+      else
+        setMsg('restoreMsg', `✓ Restored ${plural(r.restored, 'file')} into ${r.target_dir}`, 'ok');
+    } catch (e) { setMsg('restoreMsg', '✗ Restore failed: ' + e.message, 'err'); }
+  }
+
+  // ===== Cross-device =====
+  async function pullRemote() {
+    const url = document.getElementById('remoteUrl').value.trim();
+    const sid = document.getElementById('remoteSnapId').value;
+    const dir = document.getElementById('remoteDir').value.trim();
+    const token = document.getElementById('remoteToken').value;
+    if (!url || !sid) { setMsg('crossMsg', 'Please provide both remote URL and snapshot ID', 'warn'); return; }
+    setMsg('crossMsg', '⏳ Fetching chunk lists and downloading missing chunks…', '');
+    try {
+      const r = await api('/api/remote/pull', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remote_url: url, snapshot_id: parseInt(sid, 10), target_dir: dir || null, token })
+      });
+      setMsg('crossMsg',
+        `✓ Pulled ${plural(r.restored, 'file')} into ${r.target_dir}. Downloaded ${r.chunks_downloaded} chunks, ` +
+        `${r.chunks_already_local} already present locally. Saved as local snapshot #${r.local_snapshot_id}.` +
+        (r.failed.length ? ` Failed: ${r.failed.join(' | ')}` : ''), r.failed.length ? 'warn' : 'ok');
+    } catch (e) { setMsg('crossMsg', '✗ Remote recovery failed: ' + e.message, 'err'); }
+  }
+
+  // ===== Init =====
+  switchTab('dashboard');
+  loadStatus().then(loadWorkspaceFiles);
+  setInterval(loadStatus, 8000);
+</script>
+</body>
+</html>
